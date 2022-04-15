@@ -84,11 +84,40 @@ pub enum RequestError {
 	ParseJSON(serde_json::Error),
 }
 
+fn deserialize_color_value<'de, D>(
+	deserializer: D
+) -> Result<[u8; 3], D::Error>
+where D: serde::Deserializer<'de> {
+	struct Visitor;
+
+	impl<'de> serde::de::Visitor<'de> for Visitor {
+		type Value = [u8; 3];
+	
+		fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+			formatter.write_str("a css-style hex string")
+		}
+	
+		fn visit_str<E>(self, string: &str) -> Result<Self::Value, E>
+		where E: serde::de::Error {
+			let trimmed = string.trim_start_matches('#');
+			u32::from_str_radix(trimmed, 16)
+				.map(|v| {
+					let mut color = [0; 3];
+					color.copy_from_slice(&v.to_be_bytes()[1..]);
+					color
+				})
+				.map_err(serde::de::Error::custom)
+		}
+	}
+	
+	deserializer.deserialize_any(Visitor)
+}
 
 #[derive(Deserialize, Debug)]
 pub struct Color {
 	pub name: String,
-	pub value: String,
+	#[serde(deserialize_with="deserialize_color_value")]
+	pub value: [u8; 3],
 }
 
 #[derive(Deserialize, Debug)]
@@ -161,9 +190,9 @@ pub struct Client {
 }
 
 impl std::fmt::Debug for Client {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Client").field("site_base", &self.site_base).finish()
-    }
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("Client").field("site_base", &self.site_base).finish()
+	}
 }
 
 enum BufferType {
