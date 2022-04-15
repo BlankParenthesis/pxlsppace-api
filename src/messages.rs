@@ -3,9 +3,9 @@ use serde::{Deserialize, de::{Visitor, MapAccess}, Deserializer};
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Pixel {
-	x: u64,
-	y: u64,
-	color: u8,
+	pub x: usize,
+	pub y: usize,
+	pub color: u8,
 }
 
 #[derive(Deserialize, Debug)]
