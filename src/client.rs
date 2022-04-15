@@ -46,8 +46,8 @@ impl ClientBuidler {
 		self
 	}
 
-	pub fn event_handler<H: EventHandler + 'static>(mut self, handler: Arc<H>) -> Self {
-		self.event_handler = Some(handler);
+	pub fn event_handler<H: EventHandler + 'static>(mut self, handler: H) -> Self {
+		self.event_handler = Some(Arc::new(handler));
 		self
 	}
 
@@ -416,7 +416,7 @@ impl Client {
 		let (write, read) = ws_stream.split();
 
 		self.info().await.map_err(ConnectError::InfoFailed)?;
-		self.event_handler.handle_ready().await;
+		self.event_handler.handle_ready(self, ).await;
 
 		let stream = read.for_each(|message| async {
 			if let Ok(message) = message {
@@ -424,91 +424,91 @@ impl Client {
 
 				match serde_json::from_str::<Message>(&text) {
 					Ok(Message::Acknowledge { ack_for, x, y }) => {
-						self.event_handler.handle_acknowledge(ack_for, x, y).await
+						self.event_handler.handle_acknowledge(self, ack_for, x, y).await
 					},
 					Ok(Message::AdminPlacementOverrides { placement_overrides }) => {
-						self.event_handler.handle_overrides(placement_overrides).await
+						self.event_handler.handle_overrides(self, placement_overrides).await
 					},
 					Ok(Message::Alert { sender, message }) => {
-						self.event_handler.handle_alert(sender, message).await
+						self.event_handler.handle_alert(self, sender, message).await
 					},
 					Ok(Message::CanUndo { time }) => {
-						self.event_handler.handle_can_undo(time).await
+						self.event_handler.handle_can_undo(self, time).await
 					},
 					Ok(Message::CaptchaRequired) => {
-						self.event_handler.handle_captcha_required().await
+						self.event_handler.handle_captcha_required(self, ).await
 					},
 					Ok(Message::CaptchaStatus { success }) => {
-						self.event_handler.handle_captcha_status(success).await
+						self.event_handler.handle_captcha_status(self, success).await
 					},
 					Ok(Message::ChatBan { permanent, reason, expiry }) => {
-						self.event_handler.handle_chatban(permanent, reason, expiry).await
+						self.event_handler.handle_chatban(self, permanent, reason, expiry).await
 					},
 					Ok(Message::ChatBanState { permanent, reason, expiry }) => {
-						self.event_handler.handle_chatban_state(permanent, reason, expiry).await
+						self.event_handler.handle_chatban_state(self, permanent, reason, expiry).await
 					},
 					Ok(Message::ChatHistory { messages }) => {
-						self.event_handler.handle_chat_history(messages).await
+						self.event_handler.handle_chat_history(self, messages).await
 					},
 					Ok(Message::ChatLookup { target, history, chatbans }) => {
-						self.event_handler.handle_chat_lookup(target, history, chatbans).await
+						self.event_handler.handle_chat_lookup(self, target, history, chatbans).await
 					},
 					Ok(Message::ChatMessage { message }) => {
-						self.event_handler.handle_chat_message(message).await
+						self.event_handler.handle_chat_message(self, message).await
 					},
 					Ok(Message::ChatPurge { target, initiator, amount, reason, announce }) => {
-						self.event_handler.handle_chat_purge(target, initiator, amount, reason, announce).await
+						self.event_handler.handle_chat_purge(self, target, initiator, amount, reason, announce).await
 					},
 					Ok(Message::ChatPurgeSpecific { target, initiator, IDs, reason, announce }) => {
-						self.event_handler.handle_chat_purge_specific(target, initiator, IDs, reason, announce).await
+						self.event_handler.handle_chat_purge_specific(self, target, initiator, IDs, reason, announce).await
 					},
 					Ok(Message::ChatUserUpdate { who, updates }) => {
-						self.event_handler.handle_chat_user_update(who, updates).await
+						self.event_handler.handle_chat_user_update(self, who, updates).await
 					},
 					Ok(Message::Cooldown { wait }) => {
-						self.event_handler.handle_cooldown(wait).await
+						self.event_handler.handle_cooldown(self, wait).await
 					},
 					Ok(Message::FactionClear { fid }) => {
-						self.event_handler.handle_faction_clear(fid).await
+						self.event_handler.handle_faction_clear(self, fid).await
 					},
 					Ok(Message::FactionUpdate { faction }) => {
-						self.event_handler.handle_faction_update(faction).await
+						self.event_handler.handle_faction_update(self, faction).await
 					},
 					Ok(Message::MessageCooldown { diff, message }) => {
-						self.event_handler.handle_message_cooldown(diff, message).await
+						self.event_handler.handle_message_cooldown(self, diff, message).await
 					},
 					Ok(Message::Notification { notification }) => {
-						self.event_handler.handle_notification(notification).await
+						self.event_handler.handle_notification(self, notification).await
 					},
 					Ok(Message::Pixel { pixels }) => {
 						for pixel in &pixels {
 							self.update_buffers(pixel).await;
 						}
-						self.event_handler.handle_board_update(pixels).await
+						self.event_handler.handle_board_update(self, pixels).await
 					},
 					Ok(Message::PixelCounts { pixel_count, pixel_count_all_time }) => {
-						self.event_handler.handle_pixel_counts(pixel_count, pixel_count_all_time).await
+						self.event_handler.handle_pixel_counts(self, pixel_count, pixel_count_all_time).await
 					},
 					Ok(Message::Pixels { count, cause }) => {
-						self.event_handler.handle_pixels_available(count, cause).await
+						self.event_handler.handle_pixels_available(self, count, cause).await
 					},
 					Ok(Message::ReceivedReport { report_id, report_type }) => {
-						self.event_handler.handle_received_report(report_id, report_type).await
+						self.event_handler.handle_received_report(self, report_id, report_type).await
 					},
 					Ok(Message::Rename { requested }) => {
-						self.event_handler.handle_rename(requested).await
+						self.event_handler.handle_rename(self, requested).await
 					},
 					Ok(Message::RenameSuccess { new_name }) => {
-						self.event_handler.handle_rename_success(new_name).await
+						self.event_handler.handle_rename_success(self, new_name).await
 					},
 					Ok(Message::Userinfo { username, roles, pixel_count, pixel_count_all_time, banned, ban_expiry, ban_reason, method, placement_overrides, chat_banned, chatban_reason, chatban_is_perma, chatban_expiry, rename_requested, discord_name, chat_name_color }) => {
-						self.event_handler.handle_user_info(username, roles, pixel_count, pixel_count_all_time, banned, ban_expiry, ban_reason, method, placement_overrides, chat_banned, chatban_reason, chatban_is_perma, chatban_expiry, rename_requested, discord_name, chat_name_color).await
+						self.event_handler.handle_user_info(self, username, roles, pixel_count, pixel_count_all_time, banned, ban_expiry, ban_reason, method, placement_overrides, chat_banned, chatban_reason, chatban_is_perma, chatban_expiry, rename_requested, discord_name, chat_name_color).await
 					},
 					Ok(Message::Users { count }) => {
-						self.event_handler.handle_user_count(count).await
+						self.event_handler.handle_user_count(self, count).await
 					}
 					Err(_) => {
-						self.event_handler.handle_unknown(text).await
+						self.event_handler.handle_unknown(self, text).await
 					},
 				}
 			}
@@ -517,7 +517,7 @@ impl Client {
 		stream.await;
 
 		*self.connected.write().await = false;
-		self.event_handler.handle_disconnect().await;
+		self.event_handler.handle_disconnect(self).await;
 
 		Ok(())
 	}
