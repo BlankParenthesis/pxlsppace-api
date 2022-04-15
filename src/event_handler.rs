@@ -9,6 +9,7 @@ use crate::messages::{
 #[async_trait]
 pub trait EventHandler: Send + Sync {
 	async fn handle_ready(&self) {}
+	async fn handle_disconnect(&self) {}
 
 	async fn handle_acknowledge(
 		&self,
