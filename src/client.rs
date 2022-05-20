@@ -1,3 +1,4 @@
+use chrono::{DateTime, TimeZone};
 use hyper::client::HttpConnector;
 use hyper_openssl::HttpsConnector;
 use serde::Deserialize;
@@ -113,6 +114,69 @@ where D: serde::Deserializer<'de> {
 	deserializer.deserialize_any(Visitor)
 }
 
+
+fn deserialize_stats_timestamp<'de, D>(
+	deserializer: D
+) -> Result<DateTime<chrono_tz::Tz>, D::Error>
+where D: serde::Deserializer<'de> {
+	struct Visitor;
+
+	const FORMAT_STR: &str = "%Y/%m/%d - %H:%M:%S";
+
+	impl<'de> serde::de::Visitor<'de> for Visitor {
+		type Value = DateTime<chrono_tz::Tz>;
+	
+		fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+			formatter.write_str(&format!("a formatted datetime with form: {}", FORMAT_STR))
+		}
+	
+		fn visit_str<E>(self, string: &str) -> Result<Self::Value, E>
+		where E: serde::de::Error {
+			let mut split = string[0..string.len() - 1].split(" (");
+			let datetime = split.next().ok_or_else(|| E::custom("failed to extract datetime part of timestamp"))?;
+			let timezone = split.next().ok_or_else(|| E::custom("failed to extract timezone part of timestamp"))?;
+			let timezone = timezone.parse::<chrono_tz::Tz>().map_err(E::custom)?;
+
+			timezone.datetime_from_str(datetime, FORMAT_STR)
+				.map_err(serde::de::Error::custom)
+		}
+	}
+	
+	deserializer.deserialize_any(Visitor)
+}
+
+// TODO: maybe make this generic
+fn deserialize_false_or_string<'de, D>(
+	deserializer: D
+) -> Result<Option<String>, D::Error>
+where D: serde::Deserializer<'de> {
+	struct Visitor;
+
+	impl<'de> serde::de::Visitor<'de> for Visitor {
+		type Value = Option<String>;
+	
+		fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+			formatter.write_str("false or a string")
+		}
+	
+		fn visit_bool<E>(self, maybe_false: bool) -> Result<Self::Value, E>
+		where E: serde::de::Error {
+			if maybe_false == false {
+				Ok(None)
+			} else {
+				Err(E::custom("Expected false"))
+			}
+		}
+
+		fn visit_str<E>(self, string: &str) -> Result<Self::Value, E>
+		where E: serde::de::Error { 
+			Ok(Some(string.to_owned()))
+		}
+	}
+	
+	deserializer.deserialize_any(Visitor)
+}
+
 #[derive(Deserialize, Debug)]
 pub struct Color {
 	pub name: String,
@@ -180,8 +244,94 @@ pub struct BoardInfo {
 	pub chat_ratelimit_message: String,
 }
 
+#[derive(Deserialize, Debug)]
+pub struct StatsMilestoneEntry {
+	pub pretty: String,
+	pub intval: u64,
+	#[serde(rename = "res")]
+	#[serde(deserialize_with = "deserialize_false_or_string")]
+	pub user: Option<String>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct StatsGeneral {
+	pub total_users: u64,
+	pub total_pixels_placed: u64,
+	pub users_active_this_canvas: u64,
+	pub total_factions: u64,
+	pub nth_list: Vec<StatsMilestoneEntry>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct StatsUserEntry {
+	pub username: String,
+	pub pixels: u64,
+	pub place: usize,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct StatsColorEntry {
+	#[serde(rename = "colorID")]
+	pub color_id: usize,
+	pub count: u64,
+	pub place: usize,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct StatsFactionEntry {
+	pub fid: usize,
+	#[serde(rename = "Faction")]
+	pub faction: String,
+	#[serde(rename = "Canvas_Pixels")]
+	pub canvas_pixels: u64,
+	#[serde(rename = "Alltime_Pixels")]
+	pub alltime_pixels: u64,
+	#[serde(rename = "Member_Count")]
+	pub member_count: u64,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct StatsBreakdown {
+	pub users: Vec<StatsUserEntry>,
+	pub colors: Vec<StatsColorEntry>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all="camelCase")]
+pub struct StatsBreakdowns {
+	pub last_15m: StatsBreakdown,
+	pub last_hour: StatsBreakdown,
+	pub last_day: StatsBreakdown,
+	pub last_week: StatsBreakdown,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct StatsTopList {
+	pub alltime: Vec<StatsUserEntry>,
+	pub canvas: Vec<StatsUserEntry>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct StatsBoardInfo {
+	pub width: usize,
+	pub height: usize,
+	pub palette: Vec<Color>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Stats {
+	pub general: StatsGeneral,
+	pub breakdown: StatsBreakdowns,
+	pub toplist: StatsTopList,
+	pub factions: Vec<StatsFactionEntry>,
+	pub board_info: StatsBoardInfo,
+	#[serde(rename = "generatedAt")]
+	#[serde(deserialize_with = "deserialize_stats_timestamp")]
+	pub generated_at: DateTime<chrono_tz::Tz>,
+}
+
 pub struct Client {
-	site_base: Url,
+	pub site_base: Url,
 	event_handler: Arc<dyn EventHandler>,
 	http_client: hyper::Client<HttpsConnector<HttpConnector>>,
 	reconnect_time: Duration,
@@ -218,6 +368,27 @@ impl From<BufferType> for &str {
 impl Client {
 	pub fn builder() -> ClientBuidler {
 		ClientBuidler::default()
+	}
+
+	pub async fn stats(&self)  -> Result<Stats, RequestError> {
+		let location = self.site_base.join("stats/stats.json").unwrap();
+		let request = self.http_client.get(location.as_str().parse().unwrap()).await;
+
+		match request {
+			Ok(response) => {
+				hyper::body::to_bytes(response.into_body())
+					.await
+					.map_err(RequestError::Buffer)
+					.and_then(|body| {
+						let text = std::str::from_utf8(&body)
+							.map_err(RequestError::ParseUTF8)?;
+						serde_json::from_str(text)
+							.map_err(RequestError::ParseJSON)
+					})
+					
+			},
+			Err(e) => Err(RequestError::Http(e)),
+		}
 	}
 
 	pub async fn info(&self) -> Result<Arc<RwLock<BoardInfo>>, RequestError> {
@@ -316,7 +487,7 @@ impl Client {
 				// virginmap twice doesn't sound appealing.)
 
 				// +1 because we need to distinguish the oldest known pixels from
-				// pixels which 
+				// virgin pixels
 				let canvas_age = u64::try_from(info.heatmap_cooldown).unwrap() + 1;
 				Arc::new(RwLock::new(now - Duration::from_secs(canvas_age)))
 			});

@@ -15,3 +15,5 @@ serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1.0.79"
 hyper-openssl = "0.9.2"
 serde_with = "1.12.1"
+chrono = "0.4.19"
+chrono-tz = "0.6.1"
