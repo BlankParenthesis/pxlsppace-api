@@ -18,7 +18,7 @@ use crate::messages::Message;
 type Cache<T> = Mutex<Option<Arc<RwLock<T>>>>;
 
 #[derive(Default)]
-pub struct ClientCache {
+struct ClientCache {
 	info: Cache<BoardInfo>,
 	colors: Cache<Vec<u8>>,
 	initial: Cache<Vec<u8>>,
