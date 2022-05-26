@@ -177,27 +177,27 @@ where D: serde::Deserializer<'de> {
 	deserializer.deserialize_any(Visitor)
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Color {
 	pub name: String,
 	#[serde(deserialize_with="deserialize_color_value")]
 	pub value: [u8; 3],
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all="lowercase")]
 pub enum CooldownType {
 	Activity,
 	Static,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all="camelCase")]
 pub struct ActivityCooldown {
 	pub steepness: f32,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all="camelCase")]
 pub struct CooldownInfo {
 	pub r#type: CooldownType,
@@ -205,7 +205,7 @@ pub struct CooldownInfo {
 	pub activity_cooldown: ActivityCooldown,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all="camelCase")]
 pub struct AuthService {
 	pub id: String,
@@ -213,13 +213,13 @@ pub struct AuthService {
 	pub registration_enabled: bool,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Emoji {
 	pub emoji: String,
 	pub name: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all="camelCase")]
 pub struct BoardInfo {
 	pub canvas_code: String,
@@ -244,7 +244,7 @@ pub struct BoardInfo {
 	pub chat_ratelimit_message: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct StatsMilestoneEntry {
 	pub pretty: String,
 	pub intval: u64,
@@ -253,7 +253,7 @@ pub struct StatsMilestoneEntry {
 	pub user: Option<String>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct StatsGeneral {
 	pub total_users: u64,
 	pub total_pixels_placed: u64,
@@ -262,14 +262,14 @@ pub struct StatsGeneral {
 	pub nth_list: Vec<StatsMilestoneEntry>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct StatsUserEntry {
 	pub username: String,
 	pub pixels: u64,
 	pub place: usize,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct StatsColorEntry {
 	#[serde(rename = "colorID")]
 	pub color_id: usize,
@@ -277,7 +277,7 @@ pub struct StatsColorEntry {
 	pub place: usize,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct StatsFactionEntry {
 	pub fid: usize,
 	#[serde(rename = "Faction")]
@@ -290,13 +290,13 @@ pub struct StatsFactionEntry {
 	pub member_count: u64,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct StatsBreakdown {
 	pub users: Vec<StatsUserEntry>,
 	pub colors: Vec<StatsColorEntry>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all="camelCase")]
 pub struct StatsBreakdowns {
 	pub last_15m: StatsBreakdown,
@@ -305,20 +305,20 @@ pub struct StatsBreakdowns {
 	pub last_week: StatsBreakdown,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct StatsTopList {
 	pub alltime: Vec<StatsUserEntry>,
 	pub canvas: Vec<StatsUserEntry>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct StatsBoardInfo {
 	pub width: usize,
 	pub height: usize,
 	pub palette: Vec<Color>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Stats {
 	pub general: StatsGeneral,
 	pub breakdown: StatsBreakdowns,
